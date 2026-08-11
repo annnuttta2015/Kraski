@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<title>Раскраски</title>
+<style>
+  :root{
+    --bg:#fff7fb;
+    --panel:#ffffff;
+    --ink:#2f2f35;
+    --muted:#777783;
+    --shadow:0 10px 30px rgba(35,24,45,.12);
+    --radius:24px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  button{font:inherit}
+  .app{
+    height:100dvh;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    gap:10px;
+    padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+  }
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .brand{
+    font-weight:800; font-size:clamp(18px,4vw,28px); color:var(--ink);
+    padding-left:4px;
+  }
+  .actions{display:flex;gap:8px}
+  .icon-btn{
+    border:0;background:var(--panel);box-shadow:var(--shadow);border-radius:18px;
+    min-width:48px;height:48px;padding:0 14px;font-size:24px;color:var(--ink);
+    display:grid;place-items:center;
+  }
+  .stage{
+    min-height:0;
+    background:var(--panel);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    display:grid;
+    place-items:center;
+    padding:10px;
+    overflow:hidden;
+    position:relative;
+  }
+  #art{
+    width:100%;
+    height:100%;
+    max-width:760px;
+    max-height:760px;
+    touch-action:manipulation;
+  }
+  #art .paint{
+    fill:#fff;
+    stroke:#2f2f35;
+    stroke-width:5;
+    stroke-linejoin:round;
+    stroke-linecap:round;
+    cursor:pointer;
+    transition:fill .12s ease;
+  }
+  #art .line{
+    fill:none;
+    stroke:#2f2f35;
+    stroke-width:5;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    pointer-events:none;
+  }
+  .bottom{
+    display:grid;
+    gap:10px;
+  }
+  .pages{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:2px 2px 4px;
+    scrollbar-width:none;
+  }
+  .pages::-webkit-scrollbar{display:none}
+  .page-btn{
+    flex:0 0 auto;border:0;background:#fff;border-radius:18px;box-shadow:var(--shadow);
+    min-width:58px;height:48px;padding:0 14px;font-size:25px;
+  }
+  .page-btn.active{outline:4px solid rgba(55,55,65,.14)}
+  .palette{
+    display:flex;
+    gap:10px;
+    overflow-x:auto;
+    padding:2px 2px 4px;
+    scrollbar-width:none;
+  }
+  .palette::-webkit-scrollbar{display:none}
+  .color{
+    flex:0 0 auto;
+    width:54px;height:54px;
+    border-radius:50%;
+    border:4px solid #fff;
+    box-shadow:0 3px 0 rgba(0,0,0,.08),0 7px 18px rgba(0,0,0,.12);
+  }
+  .color.active{outline:4px solid #333; transform:scale(.94)}
+  .eraser{
+    background:#fff;
+    display:grid;place-items:center;
+    font-size:25px;
+    border-radius:18px;
+    width:58px;height:54px;
+  }
+  @media (min-width:700px){
+    .app{padding:16px}
+    .icon-btn{height:56px;min-width:56px}
+    .page-btn{height:56px;min-width:68px}
+    .color{width:64px;height:64px}
+    .eraser{width:66px;height:64px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">🎨 Раскраски</div>
+    <div class="actions">
+      <button class="icon-btn" id="resetBtn" aria-label="Сбросить">↻</button>
+      <button class="icon-btn" id="saveBtn" aria-label="Сохранить">⬇️</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <svg id="art" viewBox="0 0 600 600" aria-label="Раскраска"></svg>
+  </div>
+
+  <div class="bottom">
+    <div class="pages" id="pages"></div>
+    <div class="palette" id="palette"></div>
+  </div>
+</div>
+
+<script>
+const colors = [
+  "#ff4d6d","#ff8fab","#ffbe0b","#fb8500",
+  "#8ac926","#2ec4b6","#3a86ff","#6c63ff",
+  "#9b5de5","#7f5539","#8d99ae","#111111"
+];
+
+let currentColor = colors[0];
+let erasing = false;
+let currentPage = 0;
+
+const drawings = [
+  {
+    icon:"🐱",
+    svg:`
+      <ellipse class="paint" cx="300" cy="340" rx="155" ry="150"/>
+      <polygon class="paint" points="180,245 155,120 250,205"/>
+      <polygon class="paint" points="420,245 445,120 350,205"/>
+      <ellipse class="paint" cx="245" cy="315" rx="32" ry="42"/>
+      <ellipse class="paint" cx="355" cy="315" rx="32" ry="42"/>
+      <ellipse class="paint" cx="300" cy="375" rx="34" ry="26"/>
+      <path class="line" d="M300 400 C275 430 245 426 230 410"/>
+      <path class="line" d="M300 400 C325 430 355 426 370 410"/>
+      <path class="line" d="M205 385 H105 M210 410 H115 M395 385 H495 M390 410 H485"/>
+    `
+  },
+  {
+    icon:"🐟",
+    svg:`
+      <ellipse class="paint" cx="295" cy="310" rx="165" ry="105"/>
+      <polygon class="paint" points="455,310 555,220 555,400"/>
+      <path class="paint" d="M250 215 Q300 120 350 215 Z"/>
+      <path class="paint" d="M245 405 Q300 500 355 405 Z"/>
+      <circle class="paint" cx="210" cy="285" r="28"/>
+      <path class="line" d="M155 340 Q200 365 240 340"/>
+      <path class="line" d="M385 235 Q350 310 385 385"/>
+    `
+  },
+  {
+    icon:"🏠",
+    svg:`
+      <rect class="paint" x="150" y="280" width="300" height="230" rx="6"/>
+      <polygon class="paint" points="110,290 300,110 490,290"/>
+      <rect class="paint" x="245" y="380" width="110" height="130" rx="8"/>
+      <rect class="paint" x="180" y="330" width="70" height="70" rx="5"/>
+      <rect class="paint" x="350" y="330" width="70" height="70" rx="5"/>
+      <circle class="paint" cx="335" cy="447" r="7"/>
+      <path class="line" d="M215 330 V400 M180 365 H250 M385 330 V400 M350 365 H420"/>
+    `
+  },
+  {
+    icon:"🌸",
+    svg:`
+      <circle class="paint" cx="300" cy="300" r="58"/>
+      <ellipse class="paint" cx="300" cy="178" rx="68" ry="92"/>
+      <ellipse class="paint" cx="422" cy="300" rx="92" ry="68"/>
+      <ellipse class="paint" cx="300" cy="422" rx="68" ry="92"/>
+      <ellipse class="paint" cx="178" cy="300" rx="92" ry="68"/>
+      <path class="line" d="M300 480 V565"/>
+      <path class="paint" d="M300 520 Q225 470 190 520 Q230 565 300 545 Z"/>
+    `
+  },
+  {
+    icon:"🚗",
+    svg:`
+      <path class="paint" d="M115 360 L155 275 Q170 240 210 240 H390 Q430 240 450 275 L490 360 Z"/>
+      <rect class="paint" x="90" y="350" width="420" height="105" rx="35"/>
+      <circle class="paint" cx="190" cy="455" r="58"/>
+      <circle class="paint" cx="410" cy="455" r="58"/>
+      <path class="paint" d="M220 255 H295 V345 H165 Z"/>
+      <path class="paint" d="M305 255 H385 Q410 260 425 345 H305 Z"/>
+    `
+  },
+  {
+    icon:"🦋",
+    svg:`
+      <ellipse class="paint" cx="300" cy="300" rx="35" ry="130"/>
+      <ellipse class="paint" cx="205" cy="250" rx="95" ry="120" transform="rotate(-25 205 250)"/>
+      <ellipse class="paint" cx="395" cy="250" rx="95" ry="120" transform="rotate(25 395 250)"/>
+      <ellipse class="paint" cx="220" cy="390" rx="75" ry="95" transform="rotate(25 220 390)"/>
+      <ellipse class="paint" cx="380" cy="390" rx="75" ry="95" transform="rotate(-25 380 390)"/>
+      <circle class="paint" cx="300" cy="145" r="38"/>
+      <path class="line" d="M285 118 Q250 70 220 85 M315 118 Q350 70 380 85"/>
+    `
+  }
+];
+
+const art = document.getElementById("art");
+const palette = document.getElementById("palette");
+const pages = document.getElementById("pages");
+
+function renderPages(){
+  pages.innerHTML="";
+  drawings.forEach((d,i)=>{
+    const b=document.createElement("button");
+    b.className="page-btn"+(i===currentPage?" active":"");
+    b.textContent=d.icon;
+    b.onclick=()=>{currentPage=i; renderArt(); renderPages();};
+    pages.appendChild(b);
+  });
+}
+
+function renderPalette(){
+  palette.innerHTML="";
+  colors.forEach(c=>{
+    const b=document.createElement("button");
+    b.className="color"+(!erasing && c===currentColor?" active":"");
+    b.style.background=c;
+    b.setAttribute("aria-label","Цвет");
+    b.onclick=()=>{currentColor=c; erasing=false; renderPalette();};
+    palette.appendChild(b);
+  });
+  const e=document.createElement("button");
+  e.className="eraser"+(erasing?" active":"");
+  e.textContent="🧽";
+  e.onclick=()=>{erasing=true; renderPalette();};
+  palette.appendChild(e);
+}
+
+function bindPaint(){
+  art.querySelectorAll(".paint").forEach(el=>{
+    el.addEventListener("pointerdown", ev=>{
+      ev.preventDefault();
+      el.style.fill = erasing ? "#fff" : currentColor;
+    });
+  });
+}
+
+function renderArt(){
+  art.innerHTML = drawings[currentPage].svg;
+  bindPaint();
+}
+
+document.getElementById("resetBtn").onclick=renderArt;
+
+document.getElementById("saveBtn").onclick=()=>{
+  const clone=art.cloneNode(true);
+  clone.setAttribute("xmlns","http://www.w3.org/2000/svg");
+  const data=new XMLSerializer().serializeToString(clone);
+  const blob=new Blob([data],{type:"image/svg+xml"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="raskraska.svg";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+
+renderPages();
+renderPalette();
+renderArt();
+</script>
+</body>
+</html>
